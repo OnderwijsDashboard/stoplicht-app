@@ -7,10 +7,8 @@
 <style>
 body{font-family:Arial,Helvetica,sans-serif;padding:20px;max-width:720px;margin:auto}
 .buttons button{display:block;width:100%;padding:14px;margin:8px 0;font-size:18px;border:none;border-radius:8px;color:white;cursor:pointer}
-.red{background:#d9534f}
-.orange{background:#f0ad4e;color:#222}
-.green{background:#5cb85c}
-.q{background:#5bc0de;color:#022}
+.aanhetwerk{background:#5cb85c} /* groen */
+.vraag{background:#d9534f}       /* rood */
 .status-list{margin-top:18px;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:8px}
 .status-item{display:flex;align-items:center;padding:8px 10px;border-radius:8px;background:#f7f7f7;min-width:180px}
 .dot{width:16px;height:16px;border-radius:50%;margin-right:10px;flex:0 0 16px}
@@ -25,10 +23,8 @@ body{font-family:Arial,Helvetica,sans-serif;padding:20px;max-width:720px;margin:
 <select id="studentName" aria-label="Student naam"></select>
 
 <div class="buttons" role="group" aria-label="Stoplicht knoppen">
-    <button class="red" data-status="red">🟥 Ik heb direct hulp nodig</button>
-    <button class="orange" data-status="orange">🟧 Ik twijfel</button>
-    <button class="green" data-status="green">🟩 Ik kan verder</button>
-    <button class="q" data-status="question">❓ Ik heb een vraag</button>
+    <button class="aanhetwerk" data-status="aanhetwerk">🟩 Aan het werk / Geen vragen</button>
+    <button class="vraag" data-status="vraag">🟥 Ik heb een vraag</button>
 </div>
 
 <p id="msg" style="color:green" aria-live="polite"></p>
@@ -36,12 +32,11 @@ body{font-family:Arial,Helvetica,sans-serif;padding:20px;max-width:720px;margin:
 <h3>Huidige status klas</h3>
 <ul id="statusList" class="status-list" aria-live="polite"></ul>
 
-<!-- Firebase compat libs (keeps original code style) -->
+<!-- Firebase libs -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-// --- Vervang hieronder door jouw Firebase config ---
 const firebaseConfig = {
   apiKey: "AIzaSyC8wWU5VUq6YLNzxBObFuVN8WYegKzZTPI",
   authDomain: "stoplichtblokje.firebaseapp.com",
@@ -56,7 +51,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Voorbeeld klas — vervang of haal dynamisch op als nodig
+// Voorbeeld klas
 const klas = ["Anna","Bilal","Cas"];
 const sel = document.getElementById('studentName');
 klas.forEach(n=>{
@@ -66,18 +61,7 @@ klas.forEach(n=>{
     sel.appendChild(opt);
 });
 
-// Utility: leesbare tijd
-function timeAgo(ts){
-    if(!ts) return '';
-    const diff = Math.floor((Date.now() - ts)/1000);
-    if(diff < 5) return 'nu';
-    if(diff < 60) return diff + 's';
-    if(diff < 3600) return Math.floor(diff/60) + 'm';
-    if(diff < 86400) return Math.floor(diff/3600) + 'u';
-    return new Date(ts).toLocaleString();
-}
-
-// Update status in realtime DB
+// Status update functie
 function updateStatus(id,name,status){
     db.ref('students/'+id).set({
         name: name,
@@ -91,7 +75,7 @@ function updateStatus(id,name,status){
     });
 }
 
-// Buttons
+// Knoppen
 document.querySelectorAll('.buttons button').forEach(b=>{
     b.addEventListener('click', ()=>{
         if(!sel.value) return;
@@ -106,19 +90,16 @@ document.querySelectorAll('.buttons button').forEach(b=>{
 const statusList = document.getElementById('statusList');
 function renderStatuses(snapshot){
     const data = snapshot.val() || {};
-    // ensure order: klas array first, then others
     const keys = [...klas.map(n=>n.toLowerCase()), ...Object.keys(data).filter(k=>!klas.map(n=>n.toLowerCase()).includes(k))];
     statusList.innerHTML = '';
     keys.forEach(k=>{
-        const s = data[k] || {name: k, status: 'unknown', timestamp: null};
+        const s = data[k] || {name: k, status: 'onbekend', timestamp: null};
         const li = document.createElement('li');
         li.className = 'status-item';
         const dot = document.createElement('div');
         dot.className = 'dot';
-        if(s.status === 'red') dot.style.background = '#d9534f';
-        else if(s.status === 'orange') dot.style.background = '#f0ad4e';
-        else if(s.status === 'green') dot.style.background = '#5cb85c';
-        else if(s.status === 'question') dot.style.background = '#5bc0de';
+        if(s.status === 'aanhetwerk') dot.style.background = '#5cb85c';
+        else if(s.status === 'vraag') dot.style.background = '#d9534f';
         else dot.style.background = '#bbb';
         const name = document.createElement('div');
         name.textContent = s.name || k;
@@ -132,23 +113,22 @@ function renderStatuses(snapshot){
     });
 }
 
-// Listen for realtime changes
-db.ref('students').on('value', renderStatuses);
+// Tijd weergeven
+function timeAgo(ts){
+    if(!ts) return '';
+    const diff = Math.floor((Date.now() - ts)/1000);
+    if(diff < 5) return 'nu';
+    if(diff < 60) return diff + 's';
+    if(diff < 3600) return Math.floor(diff/60) + 'm';
+    if(diff < 86400) return Math.floor(diff/3600) + 'u';
+    return new Date(ts).toLocaleString();
+}
 
-// Optional: show selected student's current status when selection changes
-sel.addEventListener('change', ()=>{
-    const id = sel.value;
-    if(!id) return;
-    db.ref('students/'+id).get().then(snap=>{
-        const v = snap.val();
-        const msgEl = document.getElementById('msg');
-        if(v) msgEl.textContent = 'Huidige status: ' + v.status + (v.timestamp ? ' ('+timeAgo(v.timestamp)+')' : '');
-        else msgEl.textContent = 'Nog geen status gezet';
-        setTimeout(()=>{ msgEl.textContent = ''; }, 3000);
-    });
-});
+db.ref('students').on('value', renderStatuses);
 </script>
 </body>
 </html>
+
+
 
 
