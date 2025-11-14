@@ -51,7 +51,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // Voorbeeld klas
-const klas = ["Anna","Bilal","Cas"];
+const klas = [];
 const sel = document.getElementById('studentName');
 klas.forEach(n=>{
     const opt = document.createElement('option');
@@ -127,3 +127,4 @@ db.ref('students').on('value', renderStatuses);
 </script>
 </body>
 </html>
+
