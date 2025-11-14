@@ -11,6 +11,10 @@ h2 {margin-bottom:10px;}
 .statusListGrid {display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; list-style:none; padding:0; margin-top:10px;}
 .status-item {display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:10px; height:120px; font-weight:bold; color:#000;}
 .status-item .dot {width:30px; height:30px; border-radius:50%; margin-bottom:8px;}
+.buttons {display:flex; gap:10px; margin-top:10px;}
+.buttons button {flex:1; padding:12px; border:none; border-radius:8px; font-size:16px; cursor:pointer; color:#fff;}
+.green {background:#5cb85c;} 
+.red {background:#d9534f;}
 .timerDisplay {font-size:24px; text-align:center; margin-top:10px;}
 .clock-container {display:flex; align-items:center; gap:20px; justify-content:flex-end;}
 #clockDigital {font-size:18px; font-weight:bold;}
@@ -75,6 +79,10 @@ h2 {margin-bottom:10px;}
 
 <div class="card">
 <h3>Stoplicht Leerlingen</h3>
+<div class="buttons">
+    <button class="green" id="btnAanHetWerk">🟩 Aan het werk / Geen vragen</button>
+    <button class="red" id="btnVraag">🟥 Ik heb een vraag</button>
+</div>
 <ul id="statusList" class="statusListGrid"></ul>
 </div>
 
@@ -148,20 +156,40 @@ document.getElementById('logoutBtn').addEventListener('click', ()=>{
     loadOverlay();
 });
 
-// Stoplicht leerlingen
+// Start van de dag
+const startDagDiv=document.getElementById('startDagMsg');
+db.ref('class/startOfDayMessage').on('value',snap=>{
+    startDagDiv.textContent = snap.val()?.message || '';
+});
+
+// Stoplicht leerlingen realtime
 const statusList=document.getElementById('statusList');
-db.ref('students').on('value',snap=>{
-    const data=snap.val()||{};
+function renderStudents(data){
     statusList.innerHTML='';
     Object.keys(data).forEach(k=>{
         const li=document.createElement('li'); li.className='status-item';
         const dot=document.createElement('div'); dot.className='dot';
-        dot.style.background = data[k].status==='aanhetwerk'?'#5cb85c':'#d9534f';
+        if(data[k].status==='aanhetwerk') dot.style.background='#5cb85c';
+        else dot.style.background='#d9534f';
         li.appendChild(dot);
         const name=document.createElement('div'); name.textContent=data[k].name;
         li.appendChild(name);
         statusList.appendChild(li);
     });
+}
+db.ref('students').on('value',snap=>{
+    const data=snap.val()||{};
+    renderStudents(data);
+});
+
+// Stoplicht buttons
+document.getElementById('btnAanHetWerk').addEventListener('click',()=>{
+    if(!currentUser) return;
+    db.ref('students/'+currentUser).update({status:'aanhetwerk'});
+});
+document.getElementById('btnVraag').addEventListener('click',()=>{
+    if(!currentUser) return;
+    db.ref('students/'+currentUser).update({status:'vraag'});
 });
 
 // Timer
@@ -174,12 +202,6 @@ db.ref('class/timer').on('value',snap=>{
         const secs=Math.floor((remaining%60000)/1000);
         timerDisplay.textContent=`${mins}:${secs.toString().padStart(2,'0')}`;
     } else timerDisplay.textContent='';
-});
-
-// Start van de dag
-const startDagDiv=document.getElementById('startDagMsg');
-db.ref('class/startOfDayMessage').on('value',snap=>{
-    startDagDiv.textContent = snap.val()?.message || '';
 });
 </script>
 
