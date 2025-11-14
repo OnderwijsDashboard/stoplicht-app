@@ -5,19 +5,9 @@
 <title>Leerkracht Dashboard</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-body {
-    font-family: Arial, sans-serif;
-    background: #f5f5f5;
-    margin: 20px;
-}
+body {font-family: Arial, sans-serif; background:#f5f5f5; margin:20px;}
 h2 {margin-bottom:10px;}
-.card {
-    background:#fff;
-    padding:16px;
-    border-radius:10px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.1);
-    margin-bottom:20px;
-}
+.card {background:#fff; padding:16px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.1); margin-bottom:20px;}
 .statusListGrid {
     display:grid;
     grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
@@ -37,71 +27,21 @@ h2 {margin-bottom:10px;}
     color:#000;
     cursor:pointer;
 }
-.status-item .dot {
-    width:30px;
-    height:30px;
-    border-radius:50%;
-    margin-bottom:8px;
-}
-.buttons {
-    display:flex;
-    gap:10px;
-    margin-top:10px;
-}
-.buttons button {
-    flex:1;
-    padding:12px;
-    border:none;
-    border-radius:8px;
-    font-size:16px;
-    cursor:pointer;
-    color:#fff;
-}
+.status-item .dot {width:30px; height:30px; border-radius:50%; margin-bottom:8px;}
+.buttons {display:flex; gap:10px; margin-top:10px;}
+.buttons button {flex:1; padding:12px; border:none; border-radius:8px; font-size:16px; cursor:pointer; color:#fff;}
 .green {background:#5cb85c;} 
 .red {background:#d9534f;}
-.timerControls {
-    display:flex;
-    gap:10px;
-    margin-top:10px;
-}
-.timerControls button {
-    flex:1;
-    padding:8px;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-    color:#fff;
-}
+.timerControls {display:flex; gap:10px; margin-top:10px;}
+.timerControls button {flex:1; padding:8px; border:none; border-radius:6px; cursor:pointer; color:#fff;}
 input[type=number] {width:50px;}
 .collapsible {cursor:pointer; user-select:none;}
 .collapsibleContent {display:none; margin-top:10px;}
-.clock-container {
-    display:flex;
-    align-items:center;
-    gap:15px;
-    justify-content:flex-end;
-    margin-bottom:20px;
-}
-#clockDigital {
-    font-size:20px;
-    font-weight:bold;
-}
-#clockAnalog {
-    width:60px;
-    height:60px;
-    border:2px solid #333;
-    border-radius:50%;
-    position:relative;
-}
-#clockAnalog .hand {
-    width:50%;
-    height:2px;
-    background:#333;
-    position:absolute;
-    top:50%;
-    left:50%;
-    transform-origin:0% 50%;
-}
+.clock-container {display:flex; align-items:center; gap:15px; justify-content:flex-end; margin-bottom:20px;}
+#clockDigital {font-size:20px; font-weight:bold;}
+#clockAnalog {width:60px; height:60px; border:2px solid #333; border-radius:50%; position:relative;}
+#clockAnalog .hand {width:50%; height:2px; background:#333; position:absolute; top:50%; left:50%; transform-origin:0% 50%;}
+#startDagDisplay {margin-top:10px; font-weight:bold; white-space: pre-wrap;}
 </style>
 </head>
 <body>
@@ -123,7 +63,7 @@ input[type=number] {width:50px;}
 <h3>Start van de dag / opdrachten</h3>
 <textarea id="startDagInput" rows="3" style="width:100%;"></textarea>
 <button id="saveStartDag">Opslaan</button>
-<div id="startDagDisplay" style="margin-top:10px; font-weight:bold;"></div>
+<div id="startDagDisplay"></div>
 </div>
 
 <!-- Stoplicht leerlingen -->
@@ -166,7 +106,7 @@ input[type=number] {width:50px;}
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script>
-// Firebase config
+// Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyC8wWU5VUq6YLNzxBObFuVN8WYegKzZTPI",
   authDomain: "stoplichtblokje.firebaseapp.com",
@@ -201,10 +141,10 @@ db.ref('class/startOfDayMessage').on('value',snap=>{
     startDagDisplay.textContent=snap.val()?.message || '';
 });
 
-// Stoplicht leerlingen realtime
+// Stoplicht leerlingen
 const statusList=document.getElementById('statusList');
 function renderStudents(data){
-    const studentsArr = Object.keys(data).map(k=>({id:k, ...data[k]}));
+    const studentsArr=Object.keys(data).map(k=>({id:k,...data[k]}));
     studentsArr.sort((a,b)=>{
         if(a.status==='vraag' && b.status!=='vraag') return -1;
         if(a.status!=='vraag' && b.status==='vraag') return 1;
@@ -282,6 +222,7 @@ document.getElementById('makeGroups').addEventListener('click',()=>{
         const groups=[];
         for(let i=0;i<numGroups;i++) groups.push([]);
         keys.forEach((k,idx)=>{ groups[idx%numGroups].push(data[k].name); });
+        // Zorg dat niemand alleen blijft
         groups.forEach((g,i)=>{ if(g.length===1 && groups.length>1) groups[i-1].push(g.pop()); });
         db.ref('class/groups').set(groups);
         const ul=document.getElementById('groupList'); ul.innerHTML='';
@@ -295,3 +236,4 @@ document.getElementById('makeGroups').addEventListener('click',()=>{
 </script>
 </body>
 </html>
+
