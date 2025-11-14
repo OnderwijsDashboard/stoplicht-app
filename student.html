@@ -12,7 +12,6 @@ body{font-family:Arial,Helvetica,sans-serif;padding:20px;max-width:720px;margin:
 .status-list{margin-top:18px;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:8px}
 .status-item{display:flex;align-items:center;padding:8px 10px;border-radius:8px;background:#f7f7f7;min-width:180px}
 .dot{width:16px;height:16px;border-radius:50%;margin-right:10px;flex:0 0 16px}
-.meta{font-size:12px;color:#444;margin-left:auto}
 #msg{margin-top:12px}
 </style>
 </head>
@@ -20,7 +19,9 @@ body{font-family:Arial,Helvetica,sans-serif;padding:20px;max-width:720px;margin:
 <h2>Stoplicht - leerling</h2>
 
 <label for="studentName">Kies je naam</label>
-<select id="studentName" aria-label="Student naam"></select>
+<select id="studentName" aria-label="Student naam">
+    <option value="">-- Kies je naam --</option>
+</select>
 
 <div class="buttons" role="group" aria-label="Stoplicht knoppen">
     <button class="aanhetwerk" data-status="aanhetwerk">🟩 Aan het werk / Geen vragen</button>
@@ -49,82 +50,89 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-
-// Voorbeeld klas
-const klas = [];
 const sel = document.getElementById('studentName');
-klas.forEach(n=>{
-    const opt = document.createElement('option');
-    opt.value = n.toLowerCase();
-    opt.textContent = n;
-    sel.appendChild(opt);
-});
+const statusList = document.getElementById('statusList');
 
-// Functie voor status update
-function updateStatus(id,name,status){
-    db.ref('students/'+id).set({
-        name: name,
-        status: status,
-        timestamp: Date.now()
-    }, err=>{
-        const msg = document.getElementById('msg');
-        msg.textContent = err ? 'Fout bij opslaan' : 'Status opgeslagen: '+status;
-        msg.style.color = err ? 'crimson' : 'green';
-        setTimeout(()=>{ msg.textContent=''; }, 2500);
+// Haal studentenlijst uit Firebase en vul dropdown
+function loadStudents(){
+    db.ref('students').on('value', snapshot=>{
+        const data = snapshot.val() || {};
+        const curVal = sel.value;
+        sel.innerHTML = '<option value="">-- Kies je naam --</option>';
+        Object.keys(data).forEach(k=>{
+            const opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = data[k].name;
+            sel.appendChild(opt);
+        });
+        if(curVal && sel.querySelector('option[value="'+curVal+'"]')) sel.value = curVal;
     });
+}
+
+// Update status
+function updateStatus(id,name,status){
+    // Als status 'vraag', sla ook een volgnummer op om eerste bovenaan te tonen
+    const updates = {status: status};
+    if(status==='vraag'){
+        updates.vraagTijd = Date.now();
+    } else {
+        updates.vraagTijd = null;
+    }
+    db.ref('students/'+id).update({...updates,name:name});
+    const msg = document.getElementById('msg');
+    msg.textContent = 'Status opgeslagen: '+status;
+    msg.style.color='green';
+    setTimeout(()=>{ msg.textContent=''; },2000);
 }
 
 // Buttons
 document.querySelectorAll('.buttons button').forEach(b=>{
     b.addEventListener('click', ()=>{
         if(!sel.value) return;
-        const status = b.dataset.status;
         const id = sel.value;
         const name = sel.options[sel.selectedIndex].text;
+        const status = b.dataset.status;
         updateStatus(id,name,status);
     });
 });
 
 // Render klasstatussen
-const statusList = document.getElementById('statusList');
 function renderStatuses(snapshot){
     const data = snapshot.val() || {};
-    const keys = [...klas.map(n=>n.toLowerCase()), ...Object.keys(data).filter(k=>!klas.map(n=>n.toLowerCase()).includes(k))];
-    statusList.innerHTML = '';
-    keys.forEach(k=>{
-        const s = data[k] || {name:k, status:'onbekend', timestamp:null};
+    const items = Object.keys(data).map(k=>{
+        return {id:k, name:data[k].name, status:data[k].status||'aanhetwerk', vraagTijd:data[k].vraagTijd||null};
+    });
+
+    // Sorteer: eerst 'vraag', op volgorde van eerste klik (vraagTijd laagste bovenaan)
+    items.sort((a,b)=>{
+        if(a.status==='vraag' && b.status!=='vraag') return -1;
+        if(a.status!=='vraag' && b.status==='vraag') return 1;
+        if(a.status==='vraag' && b.status==='vraag'){
+            return (a.vraagTijd||0) - (b.vraagTijd||0);
+        }
+        return 0;
+    });
+
+    statusList.innerHTML='';
+    items.forEach(it=>{
         const li = document.createElement('li');
-        li.className = 'status-item';
+        li.className='status-item';
         const dot = document.createElement('div');
-        dot.className = 'dot';
-        if(s.status==='aanhetwerk') dot.style.background='#5cb85c';
-        else if(s.status==='vraag') dot.style.background='#d9534f';
+        dot.className='dot';
+        if(it.status==='aanhetwerk') dot.style.background='#5cb85c';
+        else if(it.status==='vraag') dot.style.background='#d9534f';
         else dot.style.background='#bbb';
         const name = document.createElement('div');
-        name.textContent = s.name || k;
-        const meta = document.createElement('div');
-        meta.className = 'meta';
-        meta.textContent = s.timestamp ? timeAgo(s.timestamp) : '';
+        name.textContent=it.name;
         li.appendChild(dot);
         li.appendChild(name);
-        li.appendChild(meta);
         statusList.appendChild(li);
     });
 }
 
-// Tijd
-function timeAgo(ts){
-    if(!ts) return '';
-    const diff = Math.floor((Date.now() - ts)/1000);
-    if(diff<5) return 'nu';
-    if(diff<60) return diff+'s';
-    if(diff<3600) return Math.floor(diff/60)+'m';
-    if(diff<86400) return Math.floor(diff/3600)+'u';
-    return new Date(ts).toLocaleString();
-}
-
+// Start realtime listener
 db.ref('students').on('value', renderStatuses);
+loadStudents();
 </script>
 </body>
 </html>
-
