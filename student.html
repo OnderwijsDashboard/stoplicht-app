@@ -25,13 +25,25 @@ h2 {margin-bottom:10px;}
 #clockAnalog {width:60px; height:60px; border:2px solid #333; border-radius:50%; position:relative;}
 #clockAnalog .hand {width:50%; height:2px; background:#333; position:absolute; top:50%; left:50%; transform-origin:0% 50%;}
 #startDagDisplay {margin-top:10px; font-weight:bold; white-space: pre-wrap;}
+/* Login Overlay */
+#loginOverlay {position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:1000;}
+#overlayContent {background:#fff; padding:30px; border-radius:12px; text-align:center; max-width:600px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+#overlayContent h2 {margin-bottom:20px;}
+.studentGrid {display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; justify-items:center;}
+.studentGrid button {padding:12px 16px; border:none; border-radius:8px; background:#5cb85c; color:#fff; font-size:16px; cursor:pointer; transition:0.2s;}
+.studentGrid button:hover {background:#4cae4c;}
 </style>
 </head>
 <body>
 
-<!-- Overlay login -->
-<div id="overlay" class="overlay"></div>
-
+<!-- Login Overlay -->
+<div id="loginOverlay">
+  <div id="overlayContent">
+    <h2>Kies je naam</h2>
+    <div id="studentButtons" class="studentGrid"></div>
+  </div>
+</div>
+    
 <!-- Klokken bovenaan -->
 <div class="clock-container">
     <span id="clockDigital"></span>
@@ -76,26 +88,32 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
-// Overlay login
-const overlay=document.getElementById('overlay');
-let currentUser=null;
-
-function loadStudents(){
+// Login Overlay
+function loadOverlay(){
+    const overlay=document.getElementById('loginOverlay');
+    const container=document.getElementById('studentButtons');
+    overlay.style.display='flex';
+    container.innerHTML='';
     db.ref('students').once('value').then(snap=>{
         const data=snap.val()||{};
-        overlay.innerHTML='';
         Object.keys(data).forEach(k=>{
             const btn=document.createElement('button');
-            btn.textContent=data[k].name;
-            btn.addEventListener('click',()=>{
-                currentUser=k;
+            btn.textContent = data[k].name;
+            btn.addEventListener('click', ()=>{
+                currentUser = k;
                 overlay.style.display='none';
             });
-            overlay.appendChild(btn);
+            container.appendChild(btn);
         });
     });
 }
-loadStudents();
+loadOverlay();
+
+// Logout button
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+    currentUser=null;
+    loadOverlay();
+
 
 // Clock
 function updateClock(){
@@ -150,3 +168,4 @@ document.getElementById('btnVraag').addEventListener('click',()=>{
 </script>
 </body>
 </html>
+
