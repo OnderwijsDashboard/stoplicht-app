@@ -4,35 +4,45 @@
 <meta charset="utf-8">
 <title>Stoplicht - dashboard</title>
 <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;margin:20px}
-    .student{padding:12px;margin:8px 0;border-radius:8px;color:white;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
-    .student small{font-size:12px;opacity:0.9}
-    .red{background:#d9534f}
-    .orange{background:#f0ad4e;color:#000}
-    .green{background:#5cb85c}
-    .question{background:#5bc0de;color:#000}
-    .loading{opacity:0.6}
-    button{margin-left:8px}
+    body {
+        font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial;
+        margin: 20px;
+    }
+    h2 {
+        margin-bottom: 20px;
+    }
+    .student {
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 8px;
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+    }
+    .student small {
+        font-size: 12px;
+        opacity: 0.9;
+    }
+
+    /* Nieuwe status kleuren */
+    .aanhetwerk { background: #5cb85c; } /* groen */
+    .vraag { background: #d9534f; }      /* rood */
+
+    .loading { opacity: 0.6; }
+    button { margin-left: 8px; }
 </style>
 </head>
 <body>
 <h2>Stoplicht - dashboard</h2>
-<div id="list" class="loading">Loading…</div>
+<div id="list" class="loading">Laden…</div>
 
-<!-- Firebase compat libs (keep as-are if you're using compat API) -->
+<!-- Firebase libs -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-/*
-    Save this file and replace the firebaseConfig values with your project's keys.
-    This dashboard:
-    - lists students from /students
-    - shows status (green/orange/red/question)
-    - click a student to cycle status
-    - shows lastUpdated if present
-*/
-
 const firebaseConfig = {
   apiKey: "AIzaSyC8wWU5VUq6YLNzxBObFuVN8WYegKzZTPI",
   authDomain: "stoplichtblokje.firebaseapp.com",
@@ -48,44 +58,52 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const listEl = document.getElementById('list');
 
-const STATUSES = ['green','orange','red','question'];
+// Statussen in het Nederlands
+const STATUSES = ['aanhetwerk','vraag'];
 
+// Veilig tekst tonen
 function sanitizeText(s){
     return String(s || '').trim();
 }
 
+// Tijd netjes weergeven
 function formatTime(ts){
     if(!ts) return '';
     const d = new Date(ts);
     return d.toLocaleString();
 }
 
+// Render alle studenten
 function render(items){
     listEl.innerHTML = '';
     if(items.length === 0){
-        listEl.textContent = 'No students found.';
+        listEl.textContent = 'Geen studenten gevonden.';
         return;
     }
+
     items.forEach(it=>{
         const div = document.createElement('div');
-        const status = STATUSES.includes(it.status) ? it.status : 'green';
+        const status = STATUSES.includes(it.status) ? it.status : 'aanhetwerk';
         div.className = 'student '+status;
-        // left: name + lastUpdated
+
+        // links: naam + laatste update
         const left = document.createElement('div');
         const name = document.createElement('div');
-        name.textContent = sanitizeText(it.name) || '(no name)';
+        name.textContent = sanitizeText(it.name) || '(geen naam)';
         const meta = document.createElement('small');
-        meta.textContent = it.lastUpdated ? 'Last: ' + formatTime(it.lastUpdated) : '';
+        meta.textContent = it.lastUpdated ? 'Laatste: ' + formatTime(it.lastUpdated) : '';
         left.appendChild(name);
         left.appendChild(meta);
-        // right: status label + edit button
+
+        // rechts: status label + knop
         const right = document.createElement('div');
         const statusLabel = document.createElement('small');
-        statusLabel.textContent = status;
+        statusLabel.textContent = status === 'aanhetwerk' ? 'Aan het werk' : 'Heeft een vraag';
         right.appendChild(statusLabel);
+
         const btn = document.createElement('button');
-        btn.textContent = 'Cycle';
-        btn.title = 'Click to cycle status';
+        btn.textContent = 'Verander status';
+        btn.title = 'Klik om status te veranderen';
         btn.addEventListener('click', ev=>{
             ev.stopPropagation();
             cycleStatus(it.id);
@@ -95,26 +113,26 @@ function render(items){
         div.appendChild(left);
         div.appendChild(right);
 
-        // click whole row to cycle too
+        // klik op hele rij om status te veranderen
         div.addEventListener('click', ()=>cycleStatus(it.id));
 
         listEl.appendChild(div);
     });
 }
 
+// Status cyclen bij docent
 function cycleStatus(id){
     const ref = db.ref('students/' + id + '/status');
     ref.once('value').then(snap=>{
         const cur = snap.val();
         const idx = STATUSES.indexOf(cur);
         const next = STATUSES[(idx+1) % STATUSES.length] || STATUSES[0];
-        // update status and lastUpdated timestamp
         db.ref('students/' + id).update({status: next, lastUpdated: Date.now()})
-            .catch(err => console.error('Update failed', err));
-    }).catch(err => console.error('Read failed', err));
+            .catch(err => console.error('Update mislukt', err));
+    }).catch(err => console.error('Lezen mislukt', err));
 }
 
-// subscribe to students list
+// Realtime updates ophalen
 db.ref('students').on('value', snapshot=>{
     const val = snapshot.val() || {};
     const arr = Object.keys(val).map(k=>({
@@ -126,12 +144,11 @@ db.ref('students').on('value', snapshot=>{
     render(arr);
     listEl.classList.remove('loading');
 }, err=>{
-    listEl.textContent = 'Failed to load: ' + (err && err.message);
+    listEl.textContent = 'Laden mislukt: ' + (err && err.message);
     listEl.classList.remove('loading');
 });
 </script>
 </body>
 </html>
-
 
 
