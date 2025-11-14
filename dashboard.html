@@ -4,41 +4,20 @@
 <meta charset="utf-8">
 <title>Stoplicht - dashboard</title>
 <style>
-    body {
-        font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial;
-        margin: 20px;
-    }
-    h2 {
-        margin-bottom: 20px;
-    }
-    .student {
-        padding: 12px;
-        margin: 8px 0;
-        border-radius: 8px;
-        color: white;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        cursor: pointer;
-    }
-    .student small {
-        font-size: 12px;
-        opacity: 0.9;
-    }
-
-    /* Nieuwe status kleuren */
-    .aanhetwerk { background: #5cb85c; } /* groen */
-    .vraag { background: #d9534f; }      /* rood */
-
-    .loading { opacity: 0.6; }
-    button { margin-left: 8px; }
+body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;margin:20px}
+h2{margin-bottom:20px}
+.student{padding:12px;margin:8px 0;border-radius:8px;color:white;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.student small{font-size:12px;opacity:0.9}
+.aanhetwerk{background:#5cb85c} /* groen */
+.vraag{background:#d9534f}      /* rood */
+.loading{opacity:0.6}
+button{margin-left:8px}
 </style>
 </head>
 <body>
 <h2>Stoplicht - dashboard</h2>
 <div id="list" class="loading">Laden…</div>
 
-<!-- Firebase libs -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
@@ -57,98 +36,82 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const listEl = document.getElementById('list');
-
-// Statussen in het Nederlands
 const STATUSES = ['aanhetwerk','vraag'];
 
-// Veilig tekst tonen
-function sanitizeText(s){
-    return String(s || '').trim();
-}
+function sanitizeText(s){return String(s||'').trim();}
+function formatTime(ts){if(!ts) return ''; const d=new Date(ts); return d.toLocaleString();}
 
-// Tijd netjes weergeven
-function formatTime(ts){
-    if(!ts) return '';
-    const d = new Date(ts);
-    return d.toLocaleString();
-}
-
-// Render alle studenten
+// Render dashboard
 function render(items){
     listEl.innerHTML = '';
-    if(items.length === 0){
-        listEl.textContent = 'Geen studenten gevonden.';
-        return;
-    }
+    if(items.length===0){listEl.textContent='Geen studenten gevonden.'; return;}
+
+    // Sorteer: leerlingen met 'vraag' eerst
+    items.sort((a,b)=>{
+        if(a.status==='vraag' && b.status!=='vraag') return -1;
+        if(a.status!=='vraag' && b.status==='vraag') return 1;
+        return 0;
+    });
 
     items.forEach(it=>{
         const div = document.createElement('div');
         const status = STATUSES.includes(it.status) ? it.status : 'aanhetwerk';
-        div.className = 'student '+status;
+        div.className='student '+status;
 
-        // links: naam + laatste update
         const left = document.createElement('div');
         const name = document.createElement('div');
-        name.textContent = sanitizeText(it.name) || '(geen naam)';
-        const meta = document.createElement('small');
-        meta.textContent = it.lastUpdated ? 'Laatste: ' + formatTime(it.lastUpdated) : '';
-        left.appendChild(name);
-        left.appendChild(meta);
+        name.textContent=sanitizeText(it.name)||( '(geen naam)');
+        const meta=document.createElement('small');
+        meta.textContent=it.lastUpdated?'Laatste: '+formatTime(it.lastUpdated):'';
+        left.appendChild(name); left.appendChild(meta);
 
-        // rechts: status label + knop
         const right = document.createElement('div');
-        const statusLabel = document.createElement('small');
-        statusLabel.textContent = status === 'aanhetwerk' ? 'Aan het werk' : 'Heeft een vraag';
+        const statusLabel=document.createElement('small');
+        statusLabel.textContent=status==='aanhetwerk'?'Aan het werk':'Heeft een vraag';
         right.appendChild(statusLabel);
 
-        const btn = document.createElement('button');
-        btn.textContent = 'Verander status';
-        btn.title = 'Klik om status te veranderen';
-        btn.addEventListener('click', ev=>{
-            ev.stopPropagation();
-            cycleStatus(it.id);
-        });
+        const btn=document.createElement('button');
+        btn.textContent='Verander status';
+        btn.title='Klik om status te veranderen';
+        btn.addEventListener('click', ev=>{ev.stopPropagation(); cycleStatus(it.id);});
         right.appendChild(btn);
 
-        div.appendChild(left);
-        div.appendChild(right);
-
-        // klik op hele rij om status te veranderen
+        div.appendChild(left); div.appendChild(right);
         div.addEventListener('click', ()=>cycleStatus(it.id));
-
         listEl.appendChild(div);
     });
 }
 
-// Status cyclen bij docent
+// Cycle status bij docent
 function cycleStatus(id){
-    const ref = db.ref('students/' + id + '/status');
+    const ref = db.ref('students/'+id+'/status');
     ref.once('value').then(snap=>{
         const cur = snap.val();
         const idx = STATUSES.indexOf(cur);
-        const next = STATUSES[(idx+1) % STATUSES.length] || STATUSES[0];
-        db.ref('students/' + id).update({status: next, lastUpdated: Date.now()})
-            .catch(err => console.error('Update mislukt', err));
-    }).catch(err => console.error('Lezen mislukt', err));
+        const next = STATUSES[(idx+1)%STATUSES.length]||STATUSES[0];
+        db.ref('students/'+id).update({status: next, lastUpdated: Date.now()})
+            .catch(err=>console.error('Update mislukt',err));
+    }).catch(err=>console.error('Lezen mislukt',err));
 }
 
-// Realtime updates ophalen
+// Realtime updates
 db.ref('students').on('value', snapshot=>{
-    const val = snapshot.val() || {};
+    const val = snapshot.val()||{};
     const arr = Object.keys(val).map(k=>({
-        id: k,
-        name: val[k].name,
-        status: val[k].status,
-        lastUpdated: val[k].lastUpdated
+        id:k,
+        name:val[k].name,
+        status:val[k].status,
+        lastUpdated:val[k].lastUpdated
     }));
     render(arr);
     listEl.classList.remove('loading');
 }, err=>{
-    listEl.textContent = 'Laden mislukt: ' + (err && err.message);
+    listEl.textContent='Laden mislukt: '+(err && err.message);
     listEl.classList.remove('loading');
 });
 </script>
 </body>
 </html>
+
 
 
