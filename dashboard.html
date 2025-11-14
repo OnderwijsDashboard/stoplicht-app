@@ -121,4 +121,116 @@ updateClock();
 
 // Toggle sections
 document.getElementById('startDagToggle').addEventListener('click',()=>{toggleSection('startDagSection');});
-document.getElem
+document.getElementById('timerToggle').addEventListener('click',()=>{toggleSection('timerSection');});
+document.getElementById('groupToggle').addEventListener('click',()=>{toggleSection('groupSection');});
+document.getElementById('nameToggle').addEventListener('click',()=>{toggleSection('nameSection');});
+function toggleSection(id){
+    const el=document.getElementById(id);
+    el.style.display = el.style.display==='none'?'block':'none';
+}
+
+// Start van de dag
+const startDagMsg=document.getElementById('startDagMsg');
+db.ref('class/startOfDayMessage').on('value',snap=>{
+    startDagMsg.textContent = snap.val()?.message || '';
+});
+document.getElementById('startDagBtn').addEventListener('click',()=>{
+    db.ref('class/startOfDayMessage').set({message:document.getElementById('startDagInput').value});
+});
+
+// Traffic light
+const circles=document.querySelectorAll('.traffic-circle');
+circles.forEach(c=>c.addEventListener('click',()=>{db.ref('class/trafficLight').set(c.dataset.color);}));
+db.ref('class/trafficLight').on('value',snap=>{
+    const color=snap.val();
+    circles.forEach(c=>c.classList.remove('active','red','orange','green'));
+    if(color) document.querySelector(`.traffic-circle.${color}`).classList.add('active',color);
+});
+
+// Timer
+let timerInterval=null;
+const timerDisplay=document.getElementById('timerDisplay');
+document.getElementById('startTimerBtn').addEventListener('click',()=>{
+    const mins=parseInt(document.getElementById('timerMinutes').value)||5;
+    const endTime=Date.now()+mins*60000;
+    db.ref('class/timer').set({endTime,running:true});
+});
+document.getElementById('stopTimerBtn').addEventListener('click',()=>{db.ref('class/timer').update({running:false});});
+document.getElementById('deleteTimerBtn').addEventListener('click',()=>{db.ref('class/timer').remove();});
+db.ref('class/timer').on('value',snap=>{
+    const t=snap.val();
+    if(t && t.running){
+        const remaining=Math.max(0,t.endTime-Date.now());
+        const mins=Math.floor(remaining/60000);
+        const secs=Math.floor((remaining%60000)/1000);
+        timerDisplay.textContent=`${mins}:${secs.toString().padStart(2,'0')}`;
+    } else timerDisplay.textContent='';
+});
+
+// Stoplicht leerlingen
+const statusList=document.getElementById('statusList');
+db.ref('students').on('value',snap=>{
+    const data=snap.val()||{};
+    const items=Object.keys(data).map(k=>({id:k,name:data[k].name,status:data[k].status||'aanhetwerk',statusTime:data[k].statusTime||0}));
+    items.sort((a,b)=>{
+        if(a.status==='vraag' && b.status!=='vraag') return -1;
+        if(a.status!=='vraag' && b.status==='vraag') return 1;
+        return a.statusTime-b.statusTime;
+    });
+    statusList.innerHTML='';
+    items.forEach(it=>{
+        const li=document.createElement('li'); li.className='status-item';
+        const dot=document.createElement('div'); dot.className='dot';
+        dot.style.background=it.status==='aanhetwerk'?'#5cb85c':'#d9534f';
+        li.appendChild(dot);
+        const name=document.createElement('div'); name.textContent=it.name;
+        li.appendChild(name);
+        statusList.appendChild(li);
+    });
+});
+
+// Group maker
+document.getElementById('groupMakerBtn').addEventListener('click',()=>{
+    db.ref('students').once('value').then(snap=>{
+        const data=snap.val()||{};
+        const keys=Object.keys(data);
+        const numGroups=parseInt(document.getElementById('numGroups').value)||2;
+        const shuffled=keys.sort(()=>Math.random()-0.5);
+        const groups=[...Array(numGroups)].map(()=>[]);
+        let i=0;
+        shuffled.forEach(k=>{
+            groups[i].push(data[k].name);
+            i=(i+1)%numGroups;
+        });
+        // adjust last group if someone alone
+        for(let g=0; g<groups.length; g++){
+            if(groups[g].length===1 && groups.length>1){
+                // move person to previous group
+                groups[g-1]=groups[g-1].concat(groups[g]);
+                groups.splice(g,1);
+            }
+        }
+        const ul=document.getElementById('groupList');
+        ul.innerHTML='';
+        groups.forEach((grp,idx)=>{
+            const li=document.createElement('li'); li.textContent=`Groep ${idx+1}: ${grp.join(', ')}`;
+            ul.appendChild(li);
+        });
+        document.getElementById('groupList').style.display='block';
+    });
+});
+
+// Name picker
+document.getElementById('namePickerBtn').addEventListener('click',()=>{
+    db.ref('students').once('value').then(snap=>{
+        const data=snap.val()||{};
+        const keys=Object.keys(data);
+        if(keys.length===0) return;
+        const pick=keys[Math.floor(Math.random()*keys.length)];
+        document.getElementById('chosenName').textContent=data[pick].name;
+        document.getElementById('chosenName').style.display='block';
+    });
+});
+</script>
+</body>
+</html>
