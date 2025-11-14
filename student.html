@@ -18,15 +18,10 @@ h2 {margin-bottom:10px;}
 .status-item .dot {width:30px; height:30px; border-radius:50%; margin-bottom:8px;}
 .statusListGrid {display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; list-style:none; padding:0; margin-top:10px;}
 .timerDisplay {font-size:24px; text-align:center; margin-top:10px;}
-#groupList,#chosenName {list-style:none; padding:0; margin-top:10px;}
 .clock-container {display:flex; align-items:center; gap:20px; justify-content:flex-end;}
 #clockDigital {font-size:18px; font-weight:bold;}
 #clockAnalog {width:80px; height:80px; border:2px solid #333; border-radius:50%; position:relative;}
 #clockAnalog .hand {width:50%; height:2px; background:#333; position:absolute; top:50%; left:50%; transform-origin:0% 50%;}
-.buttons {display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;}
-.buttons button {flex:1; padding:12px; border:none; border-radius:8px; font-size:16px; cursor:pointer; color:#fff;}
-.green {background:#5cb85c;} 
-.red {background:#d9534f;}
 #startDagMsg {background:#fff; padding:10px; border-radius:8px; margin-bottom:10px; box-shadow:0 2px 4px rgba(0,0,0,0.1);}
 </style>
 </head>
@@ -47,19 +42,6 @@ h2 {margin-bottom:10px;}
 <div class="card">
 <h3>Timer</h3>
 <div class="timerDisplay" id="timerDisplay"></div>
-</div>
-
-<div class="card">
-<h3>Namenkiezer</h3>
-<div>
-    <button id="namePickerBtn">Kies een leerling</button>
-    <div id="chosenName"></div>
-</div>
-</div>
-
-<div class="card">
-<h3>Groepjesmaker</h3>
-<ul id="groupList"></ul>
 </div>
 
 <div class="clock-container">
@@ -164,30 +146,6 @@ db.ref('class/timer').on('value',snap=>{
 const startDagDiv=document.getElementById('startDagMsg');
 db.ref('class/startOfDayMessage').on('value',snap=>{
     startDagDiv.textContent = snap.val()?.message || '';
-});
-
-// Groepjes
-const groupList=document.getElementById('groupList');
-db.ref('class/groups').on('value',snap=>{
-    const groups=snap.val()||[];
-    groupList.innerHTML='';
-    groups.forEach((grp,idx)=>{
-        const li=document.createElement('li');
-        li.textContent=`Groep ${idx+1}: ${grp.join(', ')}`;
-        groupList.appendChild(li);
-    });
-});
-
-// Namenkiezer
-document.getElementById('namePickerBtn').addEventListener('click',()=>{
-    db.ref('students').once('value').then(snap=>{
-        const data=snap.val()||{};
-        const keys=Object.keys(data);
-        if(keys.length===0) return;
-        const pick=keys[Math.floor(Math.random()*keys.length)];
-        document.getElementById('chosenName').textContent=data[pick].name;
-        document.getElementById('chosenName').style.display='block';
-    });
 });
 </script>
 </body>
