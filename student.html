@@ -5,7 +5,8 @@
 <title>Stoplicht - leerling</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-body{font-family:Arial,Helvetica,sans-serif;padding:20px;max-width:720px;margin:auto}
+body{font-family:Arial,Helvetica,sans-serif;padding:20px;max-width:720px;margin:auto;position:relative;}
+h2{margin-bottom:20px;}
 .buttons button{display:block;width:100%;padding:14px;margin:8px 0;font-size:18px;border:none;border-radius:8px;color:white;cursor:pointer}
 .aanhetwerk{background:#5cb85c} /* groen */
 .vraag{background:#d9534f}       /* rood */
@@ -13,15 +14,42 @@ body{font-family:Arial,Helvetica,sans-serif;padding:20px;max-width:720px;margin:
 .status-item{display:flex;align-items:center;padding:8px 10px;border-radius:8px;background:#f7f7f7;min-width:180px}
 .dot{width:16px;height:16px;border-radius:50%;margin-right:10px;flex:0 0 16px}
 #msg{margin-top:12px}
+
+/* Overlay voor login */
+#loginOverlay{
+    position:fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    background:rgba(0,0,0,0.8);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    color:white;
+    z-index:9999;
+}
+#loginOverlay h2{margin-bottom:20px;color:white;}
+.login-name{
+    background:#007bff;
+    padding:12px 20px;
+    margin:6px 0;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:18px;
+    width:200px;
+    text-align:center;
+}
+.login-name:hover{background:#0056b3;}
 </style>
 </head>
 <body>
 <h2>Stoplicht - leerling</h2>
 
-<label for="studentName">Kies je naam</label>
-<select id="studentName" aria-label="Student naam">
-    <option value="">-- Kies je naam --</option>
-</select>
+<!-- Overlay -->
+<div id="loginOverlay">
+    <h2>Kies je naam</h2>
+    <div id="loginNames"></div>
+</div>
 
 <div class="buttons" role="group" aria-label="Stoplicht knoppen">
     <button class="aanhetwerk" data-status="aanhetwerk">🟩 Aan het werk / Geen vragen</button>
@@ -50,35 +78,41 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const sel = document.getElementById('studentName');
 const statusList = document.getElementById('statusList');
+const loginOverlay = document.getElementById('loginOverlay');
+const loginNamesDiv = document.getElementById('loginNames');
+let currentStudentId = null;
+let currentStudentName = null;
 
-// Haal studentenlijst uit Firebase en vul dropdown
+// Haal studentenlijst uit Firebase en bouw login overlay
 function loadStudents(){
-    db.ref('students').on('value', snapshot=>{
+    db.ref('students').once('value').then(snapshot=>{
         const data = snapshot.val() || {};
-        const curVal = sel.value;
-        sel.innerHTML = '<option value="">-- Kies je naam --</option>';
+        loginNamesDiv.innerHTML = '';
         Object.keys(data).forEach(k=>{
-            const opt = document.createElement('option');
-            opt.value = k;
-            opt.textContent = data[k].name;
-            sel.appendChild(opt);
+            const nameDiv = document.createElement('div');
+            nameDiv.className='login-name';
+            nameDiv.textContent=data[k].name;
+            nameDiv.addEventListener('click', ()=>{
+                currentStudentId = k;
+                currentStudentName = data[k].name;
+                loginOverlay.style.display='none';
+            });
+            loginNamesDiv.appendChild(nameDiv);
         });
-        if(curVal && sel.querySelector('option[value="'+curVal+'"]')) sel.value = curVal;
     });
 }
 
 // Update status
-function updateStatus(id,name,status){
-    // Als status 'vraag', sla ook een volgnummer op om eerste bovenaan te tonen
+function updateStatus(status){
+    if(!currentStudentId) return;
     const updates = {status: status};
     if(status==='vraag'){
         updates.vraagTijd = Date.now();
     } else {
         updates.vraagTijd = null;
     }
-    db.ref('students/'+id).update({...updates,name:name});
+    db.ref('students/'+currentStudentId).update({...updates,name:currentStudentName});
     const msg = document.getElementById('msg');
     msg.textContent = 'Status opgeslagen: '+status;
     msg.style.color='green';
@@ -88,11 +122,7 @@ function updateStatus(id,name,status){
 // Buttons
 document.querySelectorAll('.buttons button').forEach(b=>{
     b.addEventListener('click', ()=>{
-        if(!sel.value) return;
-        const id = sel.value;
-        const name = sel.options[sel.selectedIndex].text;
-        const status = b.dataset.status;
-        updateStatus(id,name,status);
+        updateStatus(b.dataset.status);
     });
 });
 
@@ -103,13 +133,11 @@ function renderStatuses(snapshot){
         return {id:k, name:data[k].name, status:data[k].status||'aanhetwerk', vraagTijd:data[k].vraagTijd||null};
     });
 
-    // Sorteer: eerst 'vraag', op volgorde van eerste klik (vraagTijd laagste bovenaan)
+    // Eerst 'vraag' op volgorde van eerste klik
     items.sort((a,b)=>{
         if(a.status==='vraag' && b.status!=='vraag') return -1;
         if(a.status!=='vraag' && b.status==='vraag') return 1;
-        if(a.status==='vraag' && b.status==='vraag'){
-            return (a.vraagTijd||0) - (b.vraagTijd||0);
-        }
+        if(a.status==='vraag' && b.status==='vraag') return (a.vraagTijd||0)-(b.vraagTijd||0);
         return 0;
     });
 
@@ -130,7 +158,7 @@ function renderStatuses(snapshot){
     });
 }
 
-// Start realtime listener
+// Start realtime listener en load overlay
 db.ref('students').on('value', renderStatuses);
 loadStudents();
 </script>
